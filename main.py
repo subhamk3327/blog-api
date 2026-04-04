@@ -1,12 +1,13 @@
 '''blog api'''
 import psycopg2
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from jose import JWTError, jwt
 import os
 from dotenv import load_dotenv
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordBearer
+from datetime import datetime, timezone, timedelta
 
 load_dotenv()
 
@@ -42,7 +43,7 @@ class likes_c(BaseModel):
     username : str
 
 #POSTS
-@app.get("/posts")#will add crash check and verifications and jwt later
+@app.get("/posts")#since this is a blog posts are public
 def get_posts():
     conn = get_db()
     cursor = conn.cursor()
@@ -51,30 +52,56 @@ def get_posts():
     conn.close()
     return [{"id" : row[0],"heading":row[1], "content": row[2], "userid" : row[3]} for row in rows] 
 
-@app.post("/posts")#will add crash check and verifications and jwt later
-def post_posts(new_post : post_c):
+@app.post("/posts")# new feature posts automatically correct user_id to its user via token, only registered users can post
+def post_posts(new_post : post_c,token : str = Depends(oauth_scheme)):
+    try:
+        payload = jwt.decode(token,secret_key,algorithms=[algo])
+        username = payload.get("sub")
+    except JWTError:
+        raise HTTPException(status_code=401,detail="invalid token")
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("insert into post(heading,content,user_id) values (%s,%s,%s)",(new_post.heading,new_post.content,new_post.username))
+    cursor.execute("select * from users where username=%s",(username,))
+    fetch_user= cursor.fetchone()
+    if fetch_user is None:
+        raise HTTPException(status_code=401,detail="idk how it reached here but username or password invalid")
+    cursor.execute("insert into post(heading,content,user_id) values (%s,%s,%s)",(new_post.heading,new_post.content,fetch_user[0]))
     conn.commit()
     conn.close()
     return{"message": "posted successfully"}
 
 @app.delete("/post/{post_id}")#will add crash check, if exists already, verifications and jwt later 
-def delete_posts(post_id: int):
+def delete_posts(post_id: int,token : str = Depends(oauth_scheme)):
+    try:
+        payload = jwt.decode(token,secret_key,algorithms=[algo])
+        username = payload.get("sub")
+    except JWTError:
+        raise HTTPException(status_code=401,detail="invalid token")
     conn= get_db()
     cursor = conn.cursor()
     cursor.execute("select * from post where id =%s",(post_id,))
     row = cursor.fetchone()
     if row is None:
         raise HTTPException(status_code=404,detail="post id not found")
-    cursor.execute("delete from post where id = %s",(post_id,))
-    conn.commit()
+    cursor.execute("select * from users where username=%s",(username,))
+    fetch_user= cursor.fetchone()
+    if fetch_user is None:
+        raise HTTPException(status_code=401,detail="idk how it reached here but username or password invalid")
+    if fetch_user[0]== row[3]:
+        cursor.execute("delete from post where id = %s",(post_id,))
+        conn.commit()
+    else:
+        raise HTTPException(status_code=401,detail="you cannot delete others post")
     conn.close()
     return{"message": "post deleted successfully"}
 
 @app.put("/post/{post_id}")#will add crash check, if exists already, verifications and jwt later
-def change_post(post_id : int, new_post : post_c):
+def change_post(post_id : int, new_post : post_c,token : str = Depends(oauth_scheme)):
+    try:
+        payload = jwt.decode(token,secret_key,algorithms=[algo])
+        username = payload.get("sub")
+    except JWTError:
+        raise HTTPException(status_code=401,detail="invalid token")
     conn= get_db()
     cursor = conn.cursor()
     cursor.execute("select * from post where id =%s",(post_id,))
@@ -194,4 +221,28 @@ def delete_likes(post_id: int,):
     conn.commit()
     conn.close()
     return {"message": "like delted under this post successfully"}
+
+@app.post("/register")#will add unique userid later
+def registration(user : user_c):
+    conn = get_db()
+    cursor = conn.cursor()
+    user.password=pwd_context.hash(user.password)
+    cursor.execute("insert into users(username,password) values(%s,%s)",(user.username,user.password))
+    conn.commit()
+    conn.close()
+    return {"sucess":"user registered"}
+
     
+@app.post("/login")
+def login(user : user_c):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("select * from users where username=%s",(user.username,))
+    value=cursor.fetchone()
+    if value is None:
+        raise HTTPException(status_code=401,detail="invalid userid or password")
+    validation = pwd_context.verify(user.password,value[2])
+    if validation is None:
+        raise HTTPException(status_code=401,detail="invalid userid or password")
+    token = jwt.encode({"sub": value[1],"exp":datetime.now(timezone.utc)+timedelta(minutes=15)},secret_key,algorithm=algo)
+    return {"token":token}

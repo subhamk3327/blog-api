@@ -108,8 +108,13 @@ def change_post(post_id : int, new_post : post_c,token : str = Depends(oauth_sch
     row = cursor.fetchone()
     if row is None:
         raise HTTPException(status_code=404,detail="post id not found")
-    cursor.execute("update post set heading=%s, content=%s, user_id=%s where id=%s ",(new_post.heading,new_post.content,new_post.username, post_id))
-    conn.commit()
+    cursor.execute("select * from users where username=%s",(username,))
+    fetch_user = cursor.fetchone()
+    if fetch_user[0]==row[3]:
+        cursor.execute("update post set heading=%s, content=%s, user_id=%s where id=%s ",(new_post.heading,new_post.content,new_post.username, post_id))
+        conn.commit()
+    else:
+        raise HTTPException(status_code=401, detail="you are not the creator to edit this post")
     conn.close()
     return {"message": "post edited successfully"}
 
@@ -242,7 +247,7 @@ def login(user : user_c):
     if value is None:
         raise HTTPException(status_code=401,detail="invalid userid or password")
     validation = pwd_context.verify(user.password,value[2])
-    if validation is None:
+    if not validation:
         raise HTTPException(status_code=401,detail="invalid userid or password")
     token = jwt.encode({"sub": value[1],"exp":datetime.now(timezone.utc)+timedelta(minutes=15)},secret_key,algorithm=algo)
     return {"token":token}

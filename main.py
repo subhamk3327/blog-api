@@ -43,7 +43,7 @@ class likes_c(BaseModel):
     username : str
 
 #POSTS
-@app.get("/posts")#since this is a blog posts are public
+@app.get("/post")#since this is a blog posts are public
 def get_posts():
     conn = get_db()
     cursor = conn.cursor()
@@ -52,7 +52,7 @@ def get_posts():
     conn.close()
     return [{"id" : row[0],"heading":row[1], "content": row[2], "userid" : row[3]} for row in rows] 
 
-@app.post("/posts")# new feature posts automatically correct user_id to its user via token, only registered users can post
+@app.post("/post")# new feature posts automatically correct user_id to its user via token, only registered users can post
 def post_posts(new_post : post_c,token : str = Depends(oauth_scheme)):
     try:
         payload = jwt.decode(token,secret_key,algorithms=[algo])
@@ -70,7 +70,7 @@ def post_posts(new_post : post_c,token : str = Depends(oauth_scheme)):
     conn.close()
     return{"message": "posted successfully"}
 
-@app.delete("/post/{post_id}")#will add crash check, if exists already, verifications and jwt later 
+@app.delete("/post/{post_id}")#only creator of post can delete the post
 def delete_posts(post_id: int,token : str = Depends(oauth_scheme)):
     try:
         payload = jwt.decode(token,secret_key,algorithms=[algo])

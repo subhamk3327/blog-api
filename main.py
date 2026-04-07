@@ -203,7 +203,7 @@ def change_comment(post_id:int,comment_id:int,new_comment:comments_c,token : str
     return {"message": "comment edited successfully"}
 
 # LIKES
-@app.post("/post/{post_id}/likes")#need to update user_id mechanism better way
+@app.post("/post/{post_id}/likes")#unique likes only no duplication to post likes on a post
 def post_likes(post_id:int,token : str = Depends(oauth_scheme)):
     try:
         payload = jwt.decode(token,secret_key,algorithms=[algo])
@@ -227,7 +227,7 @@ def post_likes(post_id:int,token : str = Depends(oauth_scheme)):
     conn.close()
     return {"message":"liked this post successfully"}
 
-@app.get("/post/{post_id}/likes")
+@app.get("/post/{post_id}/likes")# fetches total likes using count
 def get_likes(post_id:int):
     conn = get_db()
     cursor = conn.cursor()
@@ -240,7 +240,7 @@ def get_likes(post_id:int):
     conn.close()
     return {"likes on this post":likes[0]}
 
-@app.delete("/post/{post_id}/likes")#currently anyone can delete we add userbased deletion later
+@app.delete("/post/{post_id}/likes")#only like creator can delete likes
 def delete_likes(post_id: int,token : str = Depends(oauth_scheme)):
     try:
         payload = jwt.decode(token,secret_key,algorithms=[algo])

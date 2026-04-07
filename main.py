@@ -175,7 +175,7 @@ def delete_comments(post_id:int,comment_id:int, token : str = Depends(oauth_sche
     conn.close()
     return {"message":"comment deleted under that post"}
 
-@app.put("/post/{post_id}/comments/{comment_id}")#can only be posted by registered users
+@app.put("/post/{post_id}/comments/{comment_id}")#can only be edited by registered users
 def change_comment(post_id:int,comment_id:int,new_comment:comments_c,token : str = Depends(oauth_scheme)):
     try:
         payload = jwt.decode(token,secret_key,algorithms=[algo])

@@ -99,3 +99,70 @@ Deployed on Railway: [https://web-production-57343.up.railway.app/docs](https://
 web: uvicorn main:app --host 0.0.0.0 --port $PORT
 ```
 6. Railway auto-deploys on every push
+## Testing with Postman
+
+Swagger UI (`/docs`) works for public endpoints but protected endpoints require a token. Use Postman for full testing.
+
+### 1. Register a user
+- Method: `POST`
+- URL: `https://web-production-57343.up.railway.app/register`
+- Body (raw JSON):
+```json
+{
+    "username": "yourname",
+    "password": "yourpassword"
+}
+```
+
+### 2. Login and get token
+- Method: `POST`
+- URL: `https://web-production-57343.up.railway.app/login`
+- Body (raw JSON):
+```json
+{
+    "username": "yourname",
+    "password": "yourpassword"
+}
+```
+- Copy the `token` value from the response
+
+### 3. Use token for protected endpoints
+- In Postman go to the `Authorization` tab
+- Select `Bearer Token`
+- Paste your token in the token field
+- Token expires in 15 minutes, login again to get a new one
+
+### 4. JSON body to use in the body tab for raw JSON
+- Post
+POST /post
+{
+    "heading": "your heading",
+    "content": "your content",
+    "username": 1
+}
+
+PUT /post/{post_id}
+{
+    "heading": "updated heading",
+    "content": "updated content",
+    "username": 1
+}
+- Comments
+
+POST /post/{post_id}/comments
+{
+    "message": "your comment"
+}
+
+PUT /post/{post_id}/comments/{comment_id}
+{
+    "message": "updated comment"
+}
+
+- Likes
+
+POST /post/{post_id}/likes
+no body needed — just send the request with your token
+
+DELETE /post/{post_id}/likes
+no body needed — just send the request with your token
